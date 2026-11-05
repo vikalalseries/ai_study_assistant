@@ -1,0 +1,6 @@
+chroma_db/
+study_notes.txt
+__pycache__/
+.env
+.venv/
+STUDYBUDDY_NOTES.md
