@@ -1,8 +1,10 @@
 """Retrieval pipeline: load -> chunk -> embed -> store (ingest), then embed query -> search."""
 import re
+from functools import lru_cache
 from pathlib import Path
 
 import chromadb
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
 ROOT = Path(__file__).resolve().parent
 LIBRARY_DIR = ROOT / "library"
@@ -12,9 +14,15 @@ MAX_CHUNK_CHARS = 600
 SUPPORTED = {".txt", ".md"}
 
 
+@lru_cache(maxsize=1)
 def _client():
-    # Chroma's default embedding function is a local ONNX MiniLM model (no API key needed).
+    # Created once and reused: opening the database on every search was slow.
     return chromadb.PersistentClient(path=str(DB_DIR))
+
+
+# Chroma's default embedding function is a local ONNX MiniLM model (no API key needed).
+# One shared instance keeps the model loaded in memory between searches.
+_EMBED = DefaultEmbeddingFunction()
 
 
 def chunk_text(text: str) -> list[str]:
@@ -44,7 +52,7 @@ def ingest() -> int:
         client.delete_collection(COLLECTION)
     except Exception:
         pass  # first run: nothing to delete
-    collection = client.get_or_create_collection(COLLECTION)
+    collection = client.get_or_create_collection(COLLECTION, embedding_function=_EMBED)
 
     ids, docs, metas = [], [], []
     for path in sorted(LIBRARY_DIR.iterdir()):
@@ -61,7 +69,7 @@ def ingest() -> int:
 
 def search(query: str, k: int = 4) -> list[tuple[str, str]]:
     """Return the k closest (source, text) chunks to the query."""
-    collection = _client().get_or_create_collection(COLLECTION)
+    collection = _client().get_or_create_collection(COLLECTION, embedding_function=_EMBED)
     if collection.count() == 0:
         return []
     result = collection.query(query_texts=[query], n_results=min(k, collection.count()))

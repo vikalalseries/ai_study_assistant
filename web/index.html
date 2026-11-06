@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StudyBuddy</title>
+<style>
+:root{
+  --bg:#fff; --ink:#0d0d0d; --muted:#6e6e80; --line:#e5e5e5; --soft:#f4f4f4; --hover:#ececec;
+  --side:#f9f9f9; --box:#fff; --accent:#0d0d0d; --accent-ink:#fff; --bad:#c62828;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#212121; --ink:#ececec; --muted:#9b9b9b; --line:#383838; --soft:#2f2f2f; --hover:#2a2a2a;
+  --side:#171717; --box:#2f2f2f; --accent:#ececec; --accent-ink:#171717; --bad:#ef7b72;
+}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--muted);outline-offset:2px}
+
+.app{display:grid;grid-template-columns:260px minmax(0,1fr);grid-template-rows:minmax(0,1fr);height:100vh;height:100dvh;overflow:hidden}
+aside{background:var(--side);padding:10px;display:flex;flex-direction:column;gap:4px;overflow:auto}
+.brand{padding:10px 12px 14px;font-weight:600;font-size:15px}
+.side-btn{display:flex;justify-content:space-between;align-items:center;width:100%;padding:9px 12px;border:0;background:none;border-radius:10px;text-align:left;font-size:14px}
+.side-btn:hover{background:var(--hover)}
+.side-btn[aria-current=page]{background:var(--hover)}
+.side-btn .n{color:var(--muted);font-size:13px}
+.new{margin-bottom:10px;font-weight:500}
+.sec{padding:16px 12px 6px;font-size:12px;color:var(--muted);font-weight:500}
+.spacer{flex:1}
+.hrow{display:flex;align-items:center;border-radius:10px}
+.hrow:hover,.hrow.on{background:var(--hover)}
+.hrow .t{flex:1;min-width:0;border:0;background:none;text-align:left;padding:8px 12px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hrow .x{border:0;background:none;color:var(--muted);padding:6px 10px;font-size:16px;line-height:1;visibility:hidden;border-radius:8px}
+.hrow:hover .x,.hrow .x:focus-visible{visibility:visible}
+.hrow .x:hover{color:var(--bad)}
+.hnone{padding:6px 12px;font-size:13px;color:var(--muted)}
+.score{padding:10px 12px;font-size:13px;color:var(--muted);border-top:1px solid var(--line)}
+.score b{color:var(--ink);font-weight:600}
+
+main{display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;overflow:hidden;position:relative}
+.topbar{display:none;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line)}
+.view{display:none;flex:1;min-height:0;flex-direction:column}
+.view.active{display:flex}
+.scroll{flex:1;min-height:0;overflow-y:auto}
+.wrap{max-width:760px;margin:0 auto;padding:24px 20px}
+
+/* chat */
+.hero{text-align:center}
+.hero h1{font-size:30px;font-weight:600;margin:0;letter-spacing:-.01em}
+/* empty state: heading, input and suggestions sit together in the middle of the page */
+#v-chat.empty{justify-content:center;padding-bottom:6vh}
+#v-chat.empty .scroll{flex:none;overflow:visible}
+#v-chat.empty .wrap{padding-bottom:18px}
+#v-chat.empty .fine{display:none}
+.starts{display:none;flex-wrap:wrap;justify-content:center;gap:10px;max-width:760px;margin:6px auto 0;padding:0 20px}
+#v-chat.empty .starts{display:flex}
+.starts button{border:1px solid var(--line);background:none;border-radius:999px;padding:9px 16px;font-size:14px;color:var(--muted)}
+.starts button:hover{background:var(--soft);color:var(--ink)}
+.turn{padding:14px 0}
+.you{background:var(--soft);border-radius:18px;padding:10px 18px;margin-left:auto;max-width:75%;width:fit-content;white-space:pre-wrap;overflow-wrap:anywhere}
+.reply{margin-top:18px;overflow-wrap:anywhere}
+.reply p{margin:0 0 1em}.reply p:last-child{margin:0}
+.reply ul,.reply ol{padding-left:1.5em;margin:0 0 1em}
+.reply li{margin:.25em 0}
+.reply code{background:var(--soft);padding:2px 6px;border-radius:6px;font-size:.88em}
+.reply.err{color:var(--bad)}
+.did{font-size:14px;color:var(--muted);margin-top:18px}
+.did + .reply{margin-top:8px}
+.wait{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--ink);animation:p 1s infinite ease-in-out}
+@keyframes p{0%,100%{transform:scale(.7);opacity:.5}50%{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion:reduce){.wait{animation:none}}
+
+.composer{padding:0 20px 14px}
+.composer form{max-width:760px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;background:var(--box);border:1px solid var(--line);border-radius:30px;padding:9px 9px 9px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.composer form:focus-within{border-color:var(--muted)}
+textarea{flex:1;resize:none;max-height:180px;border:0;background:none;color:var(--ink);font:inherit;padding:7px 0;outline:none}
+textarea:focus,textarea:focus-visible{outline:none;box-shadow:none}
+textarea::placeholder{color:var(--muted)}
+.send{flex:none;width:40px;height:40px;border:0;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center}
+.send:disabled{opacity:.25;cursor:default}
+.send svg{width:18px;height:18px}
+.fine{text-align:center;font-size:12px;color:var(--muted);padding:0 20px 12px}
+
+/* pages */
+h2{font-size:24px;font-weight:600;margin:12px 0 4px}
+.sub{color:var(--muted);margin:0 0 24px;font-size:15px}
+.drop{border:1px dashed var(--line);border-radius:14px;padding:18px;color:var(--muted);margin-bottom:20px;font-size:15px}
+.drop.over{border-color:var(--ink);color:var(--ink)}
+.drop button,.act{border:0;background:none;padding:0;text-decoration:underline;text-underline-offset:3px;color:var(--ink);font-size:inherit}
+.item{display:flex;align-items:baseline;gap:16px;padding:13px 0;border-bottom:1px solid var(--line)}
+.item .grow{flex:1;min-width:0;overflow-wrap:anywhere}
+.item small,.topic{color:var(--muted);font-size:14px}
+.topic{min-width:84px;text-transform:capitalize}
+.act{color:var(--muted);font-size:14px;text-decoration:none}
+.act:hover{color:var(--ink);text-decoration:underline}
+.act.del:hover{color:var(--bad)}
+.empty{color:var(--muted)}
+pre.preview{white-space:pre-wrap;background:var(--soft);border-radius:12px;padding:16px;margin:24px 0 0;font:13.5px/1.6 ui-monospace,Consolas,monospace}
+.summary{white-space:pre-wrap;background:var(--soft);border-radius:14px;padding:18px 20px}
+
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.show{opacity:1}
+
+@media (max-width:760px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  aside{display:none}
+  .topbar{display:flex}
+  .topbar select{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:6px 8px;font:inherit;font-size:14px}
+  .topbar button{border:0;background:none;font-size:14px;font-weight:500}
+  .starts{grid-template-columns:1fr}
+  .you{max-width:88%}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand">StudyBuddy</div>
+    <button class="side-btn new" id="new">New chat</button>
+    <div class="sec">Workspace</div>
+    <button class="side-btn" data-view="chat" aria-current="page">Chat</button>
+    <button class="side-btn" data-view="library">Library <span class="n" id="b-files">0</span></button>
+    <button class="side-btn" data-view="notes">Notes <span class="n" id="b-notes">0</span></button>
+    <div class="sec">History</div>
+    <div id="hist"></div>
+    <div class="spacer"></div>
+    <div class="score">Quiz score: <b id="score-t">none yet</b></div>
+    <button class="side-btn" id="forget">Clear memory</button>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <select id="msel" aria-label="Section">
+        <option value="chat">Chat</option><option value="library">Library</option>
+        <option value="notes">Notes</option>
+      </select>
+      <button id="mnew">New chat</button>
+    </div>
+
+    <section class="view active empty" id="v-chat">
+      <div class="scroll" id="scroll"><div class="wrap" id="log">
+        <div class="hero" id="hero"><h1>What are you studying today?</h1></div>
+      </div></div>
+      <div class="composer">
+        <form id="form">
+          <textarea id="input" rows="1" placeholder="Message StudyBuddy" aria-label="Message"></textarea>
+          <button class="send" id="send" type="submit" aria-label="Send message" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </button>
+        </form>
+      </div>
+      <div class="starts">
+        <button>Explain the water cycle</button>
+        <button>Quiz me on my notes</button>
+        <button>What is 342 &times; 17?</button>
+        <button>Save a note: mitochondria make ATP</button>
+      </div>
+      <div class="fine">Answers come from your library when possible. Check important facts.</div>
+    </section>
+
+    <section class="view" id="v-library"><div class="scroll"><div class="wrap">
+      <h2>Library</h2><p class="sub">Files StudyBuddy reads from when it answers. New uploads are indexed straight away.</p>
+      <div class="drop" id="drop">Drop a .txt or .md file here, or <button id="pick" type="button">choose one</button>.
+        <input type="file" id="file" accept=".txt,.md" hidden></div>
+      <div id="files"></div>
+      <pre class="preview" id="preview" hidden></pre>
+    </div></div></section>
+
+    <section class="view" id="v-notes"><div class="scroll"><div class="wrap">
+      <h2>Notes</h2><p class="sub">Things you asked it to remember. Try &ldquo;save a note: &hellip;&rdquo; in chat.</p>
+      <div id="notes"></div>
+    </div></div></section>
+
+  </main>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const TOOL_LABEL = {search_study_material:'Searching your notes', calculate:'Calculating', save_note:'Saving a note', track_quiz_score:'Updating your score'};
+
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
+async function api(path, opts){
+  const r = await fetch('/api'+path, opts);
+  if(!r.ok){let m='Request failed';try{m=(await r.json()).detail||m}catch{}throw new Error(m)}
+  return r.json();
+}
+
+function md(src){
+  const lines = esc(src).split('\n'); let html='', list=null;
+  const inline = t => t.replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/(^|\W)\*([^*\n]+)\*(?=\W|$)/g,'$1<i>$2</i>');
+  const close = () => { if(list){html+=`</${list}>`;list=null} };
+  for(const l of lines){
+    let m;
+    if((m=l.match(/^\s*[*-]\s+(.*)/))){ if(list!=='ul'){close();html+='<ul>';list='ul'} html+=`<li>${inline(m[1])}</li>`; }
+    else if((m=l.match(/^\s*\d+[.)]\s+(.*)/))){ if(list!=='ol'){close();html+='<ol>';list='ol'} html+=`<li>${inline(m[1])}</li>`; }
+    else if(!l.trim()) close();
+    else { close(); html+=`<p>${inline(/^#+\s/.test(l)?'**'+l.replace(/^#+\s*/,'')+'**':l)}</p>`; }
+  }
+  close(); return html;
+}
+
+function show(view){
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='v-'+view));
+  document.querySelectorAll('[data-view]').forEach(b=>{ if(b.dataset.view===view) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current') });
+  $('#msel').value=view;
+  if(view==='library') loadLibrary(); if(view==='notes') loadNotes();
+}
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>show(b.dataset.view));
+$('#msel').onchange=e=>{ const v=e.target.value; v.startsWith('c:') ? openChat(v.slice(2)) : show(v) };
+
+/* history: the 10 most recent chats, kept by the server */
+let activeId=null;
+async function loadHistory(){
+  let data; try{ data=await api('/conversations') }catch{ return }
+  const list=data.conversations;
+  $('#hist').innerHTML = list.length ? list.map(c=>`<div class="hrow${c.id===activeId?' on':''}"><button class="t" data-id="${c.id}" title="${esc(c.title)}">${esc(c.title)}</button><button class="x" data-del="${c.id}" aria-label="Delete chat">&times;</button></div>`).join('') : '<div class="hnone">No chats yet</div>';
+  const sel=$('#msel'); sel.querySelector('optgroup')?.remove();
+  if(list.length){ const g=document.createElement('optgroup'); g.label='History'; list.forEach(c=>{const o=document.createElement('option'); o.value='c:'+c.id; o.textContent=c.title; g.appendChild(o)}); sel.appendChild(g) }
+}
+$('#hist').onclick=async e=>{
+  const o=e.target.closest('[data-id]'), d=e.target.closest('[data-del]');
+  if(o && !busy) openChat(o.dataset.id);
+  if(d && !busy && confirm('Delete this chat?')){
+    try{ const r=await api('/conversations/'+d.dataset.del,{method:'DELETE'}); if(r.was_active||activeId===d.dataset.del){ location.reload(); return } loadHistory() }catch(err){toast(err.message)}
+  }
+};
+function addTurn(user, reply){
+  const turn=document.createElement('div'); turn.className='turn';
+  turn.innerHTML='<div class="you"></div><div class="reply"></div>';
+  turn.querySelector('.you').textContent=user; turn.querySelector('.reply').innerHTML=md(reply); log.appendChild(turn);
+}
+async function openChat(id){
+  if(busy) return;
+  try{
+    const c=await api('/conversations/'+id+'/open',{method:'POST'});
+    activeId=id; log.innerHTML=''; $('#v-chat').classList.remove('empty');
+    for(let i=0;i+1<c.messages.length;i+=2) addTurn(c.messages[i].text, c.messages[i+1].text);
+    show('chat'); refresh(); loadHistory(); toBottom();
+  }catch(err){ toast(err.message) }
+}
+
+function setScore(c,t){ $('#score-t').textContent = t ? `${c} of ${t}` : 'none yet' }
+async function refresh(){
+  try{ const s=await api('/status'); setScore(s.quiz_correct,s.quiz_total); $('#b-files').textContent=s.files; $('#b-notes').textContent=s.notes }catch{}
+}
+
+const log=$('#log'), input=$('#input'), sendBtn=$('#send');
+let busy=false;
+const toBottom=()=>{const s=$('#scroll');s.scrollTop=s.scrollHeight};
+const syncSend=()=>{ sendBtn.disabled = busy || !input.value.trim() };
+
+// First message: the input box glides from the middle of the page down to the bottom.
+function leaveEmptyState(){
+  const view=$('#v-chat'); if(!view.classList.contains('empty')) return;
+  const box=$('.composer'), before=box.getBoundingClientRect().top;
+  $('#hero')?.remove(); view.classList.remove('empty');
+  const delta=before-box.getBoundingClientRect().top;
+  if(!matchMedia('(prefers-reduced-motion:reduce)').matches && box.animate)
+    box.animate([{transform:`translateY(${delta}px)`},{transform:'none'}],{duration:500,easing:'cubic-bezier(.22,.8,.2,1)'});
+}
+
+async function send(text){
+  text=text.trim(); if(!text||busy) return;
+  busy=true; input.value=''; input.style.height='auto'; syncSend();
+  leaveEmptyState();
+  const turn=document.createElement('div'); turn.className='turn';
+  turn.innerHTML='<div class="you"></div><div class="did" hidden></div><div class="reply"><span class="wait"></span></div>';
+  turn.querySelector('.you').textContent=text; log.appendChild(turn); toBottom();
+  const body=turn.querySelector('.reply'), did=turn.querySelector('.did'), steps=[];
+  let acc='';
+  try{
+    const res = await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});
+    if(!res.ok) throw new Error('Server error '+res.status);
+    const reader=res.body.getReader(), dec=new TextDecoder(); let buf='';
+    while(true){
+      const {value,done}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      let i; while((i=buf.indexOf('\n\n'))>=0){
+        const block=buf.slice(0,i); buf=buf.slice(i+2);
+        const ev=(block.match(/^event: (.*)$/m)||[])[1], data=JSON.parse((block.match(/^data: (.*)$/m)||[,'{}'])[1]);
+        if(ev==='tool'){ steps.push(TOOL_LABEL[data.name]||data.name); did.hidden=false; did.textContent=steps.join(' · ')+'…' }
+        else if(ev==='token'){ acc+=data.text; body.innerHTML=md(acc) }
+        else if(ev==='done'){ body.innerHTML=md(data.text||acc); if(steps.length) did.textContent=steps.join(' · '); setScore(data.quiz.quiz_correct,data.quiz.quiz_total); activeId=data.conversation; refresh(); loadHistory() }
+        else if(ev==='error'){ body.classList.add('err'); body.textContent=data.message }
+        toBottom();
+      }
+    }
+  }catch(e){ body.classList.add('err'); body.textContent='Could not reach the server. Is it running?' }
+  busy=false; syncSend(); input.focus();
+}
+$('#form').onsubmit=e=>{e.preventDefault();send(input.value)};
+input.onkeydown=e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send(input.value)} };
+input.oninput=()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,180)+'px';syncSend()};
+document.querySelectorAll('.starts button').forEach(c=>c.onclick=()=>send(c.textContent));
+
+async function newChat(){
+  if(busy) return;
+  try{ await api('/session/new',{method:'POST'}) }catch(e){ toast('Could not start a new chat'); return }
+  location.reload();
+}
+$('#new').onclick=newChat; $('#mnew').onclick=newChat;
+
+async function loadLibrary(){ renderFiles((await api('/library')).files) }
+function renderFiles(files){
+  $('#b-files').textContent=files.length;
+  $('#files').innerHTML = files.length ? files.map(f=>`<div class="item"><div class="grow">${esc(f.name)} <small>&nbsp;${(f.size/1024).toFixed(1)} KB</small></div><button class="act" data-open="${esc(f.name)}">Read</button><button class="act del" data-del="${esc(f.name)}">Delete</button></div>`).join('') : '<p class="empty">Nothing here yet. Upload your notes to get started.</p>';
+}
+$('#files').onclick=async e=>{
+  const o=e.target.closest('[data-open]'), d=e.target.closest('[data-del]');
+  try{
+    if(o){const r=await api('/library/'+encodeURIComponent(o.dataset.open)); const p=$('#preview'); p.hidden=false; p.textContent=r.text; p.scrollIntoView({behavior:'smooth'})}
+    if(d && confirm('Delete '+d.dataset.del+'?')){const r=await api('/library/'+encodeURIComponent(d.dataset.del),{method:'DELETE'}); renderFiles(r.files); $('#preview').hidden=true; toast('Deleted')}
+  }catch(err){toast(err.message)}
+};
+async function upload(file){
+  if(!file) return; const fd=new FormData(); fd.append('file',file);
+  toast('Uploading…');
+  try{ const r=await api('/library',{method:'POST',body:fd}); renderFiles(r.files); toast('Added and indexed') }catch(err){toast(err.message)}
+}
+$('#pick').onclick=()=>$('#file').click();
+$('#file').onchange=e=>{upload(e.target.files[0]);e.target.value=''};
+const drop=$('#drop');
+['dragover','dragenter'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>upload(e.dataTransfer.files[0]));
+
+async function loadNotes(){
+  const {notes}=await api('/notes'); $('#b-notes').textContent=notes.length;
+  $('#notes').innerHTML = notes.length ? notes.slice().reverse().map(n=>`<div class="item"><span class="topic">${esc(n.topic)}</span><div class="grow">${esc(n.note)}</div></div>`).join('') : '<p class="empty">No notes saved yet.</p>';
+}
+$('#forget').onclick=async()=>{
+  if(!confirm('Erase the conversation memory and start fresh? Your library and notes stay.')) return;
+  await api('/memory',{method:'DELETE'}); location.reload();
+};
+refresh(); input.focus();
+// On load: if the server is still in a chat (e.g. page refresh), show it again.
+(async()=>{ try{ const d=await api('/conversations'); if(d.active) await openChat(d.active); else loadHistory() }catch{} })();
+</script>
+</body>
+</html>

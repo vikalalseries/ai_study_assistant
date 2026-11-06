@@ -4,3 +4,4 @@ __pycache__/
 .env
 .venv/
 STUDYBUDDY_NOTES.md
+conversations/
