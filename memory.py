@@ -9,12 +9,12 @@ from collections.abc import Sequence
 from agent_framework import Agent
 
 try:
-    from .config import ROOT, make_client
+    from .config import DATA_DIR, make_client
 except ImportError:  # run as a plain script from inside the folder
-    from config import ROOT, make_client
+    from config import DATA_DIR, make_client
 
-MEMORY_FILE = ROOT / "chat_memory.json"
-SUMMARY_FILE = ROOT / "chat_summary.txt"
+MEMORY_FILE = DATA_DIR / "chat_memory.json"
+SUMMARY_FILE = DATA_DIR / "chat_summary.txt"
 FIRST_SUMMARY_TURNS = 10
 NEXT_SUMMARY_TURNS = 9
 

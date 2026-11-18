@@ -11,6 +11,9 @@ for stream in (sys.stdout, sys.stderr):
     stream.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parent
+# Vercel's code folder is read-only; /tmp is the only place a function can write (and it is temporary).
+DATA_DIR = Path("/tmp/studybuddy") if os.getenv("VERCEL") else ROOT
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 MODEL = "gemini-3.5-flash-lite"
 
 load_dotenv(ROOT / ".env")

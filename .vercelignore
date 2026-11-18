@@ -1,0 +1,11 @@
+.venv
+.env
+.git
+__pycache__
+chroma_db
+library
+chat_memory.json
+chat_summary.txt
+study_notes.txt
+STUDYBUDDY_NOTES.md
+Polished.dc.html

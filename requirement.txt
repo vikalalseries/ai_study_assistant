@@ -1,5 +1,0 @@
-python-dotenv
-google-genai
-agent-framework
-agent-framework-gemini
-chromadb

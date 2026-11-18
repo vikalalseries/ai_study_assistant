@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "server.py": {
+      "maxDuration": 60,
+      "includeFiles": "static/**"
+    }
+  }
+}

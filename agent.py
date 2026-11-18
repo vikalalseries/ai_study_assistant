@@ -5,12 +5,12 @@ from agent_framework import Agent, FunctionInvocationContext, tool
 
 try:
     from . import rag
-    from .config import ROOT, make_client
+    from .config import DATA_DIR, make_client
 except ImportError:  # run as a plain script from inside the folder
     import rag
-    from config import ROOT, make_client
+    from config import DATA_DIR, make_client
 
-NOTES_FILE = ROOT / "study_notes.txt"
+NOTES_FILE = DATA_DIR / "study_notes.txt"
 
 _OPS = {
     ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
@@ -90,10 +90,10 @@ def search_study_material(question: str) -> dict:
     Returns:
         A dict with matching passages (each with its source file), or status "no_results".
     """
-    hits = rag.search(question)
+    hits = rag.search_scored(question)
     if not hits:
         return {"status": "no_results", "message": "Nothing found. The notes library may be empty or not ingested."}
-    return {"status": "success", "passages": [{"source": s, "text": t} for s, t in hits]}
+    return {"status": "success", "passages": [{"source": s, "text": t, "match": m} for s, t, m in hits]}
 
 
 INSTRUCTIONS = """You are StudyBuddy, a friendly, concise study assistant.
