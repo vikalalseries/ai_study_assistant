@@ -2,7 +2,8 @@
   "functions": {
     "server.py": {
       "maxDuration": 60,
-      "includeFiles": "static/**"
+      "includeFiles": "static/**",
+      "excludeFiles": "{**/kubernetes/**,**/onnxruntime/**,**/__pycache__/**,**/tests/**}"
     }
   }
 }

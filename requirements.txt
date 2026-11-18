@@ -1,6 +1,6 @@
 python-dotenv
 google-genai
-agent-framework
+agent-framework-core
 agent-framework-gemini
 chromadb
 httpx
