@@ -218,7 +218,9 @@
     .msg, .msg.user { max-width: 100%; }
     .msg.bot .bubble { padding: 12px 14px; }
     .composer { padding: 6px 12px 10px; }
-    .input-row { padding: 6px 6px 6px 16px; gap: 8px; }
+    .input-row { padding: 6px 6px 6px 16px; gap: 4px; }
+    #input::placeholder { font-size: 12px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+    #input { text-overflow: ellipsis; }
     .empty { margin-top: 3vh; }
     .empty h2 { font-size: 22px; }
     .sources .hd { padding-inline: 14px; }
