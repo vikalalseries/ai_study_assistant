@@ -58,11 +58,11 @@
 
   /* ---------- views ---------- */
   .views { flex: 1; min-height: 0; position: relative; }
-  .view { position: absolute; inset: 0; display: none; }
+  .view { position: absolute; inset: 0; display: none; min-height: 0; }
   .view.active { display: flex; }
 
   /* chat view */
-  .chat-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .chat-col { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
   #messages { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 28px 32px 8px; scroll-behavior: smooth; }
   .thread { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
   .msg { display: flex; flex-direction: column; gap: 8px; max-width: 78%; }
@@ -95,6 +95,7 @@
 
   .composer { flex: none; padding: 8px 32px 24px; }
   .composer .inner { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  .composer.started .chips-row { display: none; }
   .chip { min-height: 44px; padding: 0 18px; border: 1px solid var(--line2); border-radius: 22px; background: var(--panel); font-weight: 500; font-size: 13px; }
   .chip:hover { border-color: var(--accent); }
   .input-row { display: flex; align-items: flex-end; gap: 12px; background: var(--panel); border: 1px solid var(--line2); border-radius: 16px; padding: 8px 8px 8px 20px; }
@@ -159,7 +160,9 @@
   .icon-btn { background: none; border: 0; color: var(--muted); width: 32px; height: 32px; border-radius: 8px; font-size: 15px; }
   .icon-btn:hover { background: var(--seg); color: var(--bad); }
   .stale { background: var(--amber-soft); color: var(--amber); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
-  .note { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .note { display: flex; align-items: flex-start; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .note-body { flex: 1; min-width: 0; }
+  .note .icon-btn { flex: none; }
   .note:last-child { border-bottom: 0; }
   .note b { display: block; color: var(--accent-text); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
   .summary { white-space: pre-wrap; font-size: 14px; line-height: 1.6; max-height: 260px; overflow-y: auto; }
@@ -201,7 +204,8 @@
     #messages { padding: 20px 16px 8px; }
     .msg, .msg.user { max-width: 92%; }
     .composer { padding: 8px 16px 16px; }
-    .composer .chips-row { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
+    .composer .chips-row { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; scrollbar-width: none; }
+    .composer .chips-row::-webkit-scrollbar { display: none; }
     .chip { flex: none; }
     .page { padding: 20px 16px; }
     .grid2 { grid-template-columns: minmax(0, 1fr); gap: 16px; }
@@ -447,6 +451,7 @@ function setTab(name) {
   $$('.seg').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   $$('.bn button').forEach(b => b.dataset.tab === name ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+  try { if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name); } catch {}
   if (name === 'chat') messages.scrollTop = messages.scrollHeight;
 }
 
@@ -461,8 +466,11 @@ function showEmpty() {
       <button data-fill="Remember that ">Save a note for later</button>
     </div></div>`;
 }
+const isTouch = matchMedia('(hover: none) and (pointer: coarse)').matches;
+const refocus = () => { if (!isTouch) input.focus(); };  // on phones leave the keyboard closed after sending
 function addMsg(role, text, tools = []) {
   $('.empty', thread)?.remove();
+  if (role === 'user' || role === 'bot') $('.composer').classList.add('started');  // hide quick suggestions once the chat begins
   const searches = tools.filter(t => t.tool === 'search_study_material');
   const passageCount = searches.reduce((n, t) => n + (t.passages?.length || 0), 0);
   const files = [...new Set(searches.flatMap(t => t.sources || []))];
@@ -547,21 +555,22 @@ async function sendFiles(files) {
 
 async function send(text) {
   text = text.trim(); if ((!text && !pendingFiles.length) || busy) return;
+  input.blur();  // closes the on-screen keyboard on phones; tapping the box opens it again
   setTab('chat');
   busy = true; sendBtn.disabled = true;
   if (pendingFiles.length) {
     const files = pendingFiles; pendingFiles = []; renderPending();
     const ok = await sendFiles(files);
     if (!ok) { pendingFiles = files; renderPending(); }  // keep them so the user can retry
-    if (!ok || !text) { busy = false; sendBtn.disabled = false; input.focus(); return; }
+    if (!ok || !text) { busy = false; sendBtn.disabled = false; refocus(); return; }
   }
   addMsg('user', text); input.value = ''; autosize();
   const t = typing();
   try {
     const r = await api('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text }) });
-    t.remove(); addMsg('bot', r.answer, r.tools); renderSources(r.tools); renderState(r.state);
+    t.remove(); addMsg('bot', r.answer, r.tools); renderSources(r.tools); renderState(r.state); saveTurn(text, r.answer);
   } catch (e) { t.remove(); addMsg('error', 'Something went wrong: ' + e.message); }
-  busy = false; sendBtn.disabled = false; input.focus();
+  busy = false; sendBtn.disabled = false; refocus();
 }
 
 /* ---------- state (score, files, notes, memory) ---------- */
@@ -575,7 +584,7 @@ function renderState(s) {
   $('#scoreBar').parentElement.setAttribute('aria-valuenow', pct);
 
   $('#notes').innerHTML = s.notes.length
-    ? s.notes.map(n => `<div class="note"><b>${esc(n.topic)}</b>${esc(n.note)}</div>`).join('')
+    ? s.notes.map((n, i) => `<div class="note"><div class="note-body"><b>${esc(n.topic)}</b>${esc(n.note)}</div><button class="icon-btn" data-delnote="${i}" aria-label="Delete note ${esc(n.topic)}" title="Delete note">🗑</button></div>`).join('')
     : '<p class="muted" style="margin:0">Nothing saved yet. Say “remember that…” in the chat.</p>';
 
   $('#files').innerHTML = s.library.length ? s.library.map(f =>
@@ -599,6 +608,12 @@ input.addEventListener('input', autosize);
 
 document.addEventListener('click', async e => {
   const tab = e.target.closest('[data-tab]'); if (tab) return setTab(tab.dataset.tab);
+  const dn = e.target.closest('[data-delnote]');
+  if (dn) {
+    if (!confirm('Delete this saved note?')) return;
+    try { await api('/api/notes/' + dn.dataset.delnote, { method: 'DELETE' }); await refresh(); toast('Note deleted'); } catch (x) { toast(x.message); }
+    return;
+  }
   const p = e.target.closest('[data-prompt]'); if (p) return send(p.dataset.prompt);
   const q = e.target.closest('[data-quiz]'); if (q) return send(q.dataset.quiz);
   const f = e.target.closest('[data-fill]'); if (f) { setTab('chat'); input.value = f.dataset.fill; autosize(); input.focus(); return; }
@@ -706,14 +721,24 @@ $('#theme').onclick = () => {
 };
 try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
 
+/* ---------- keep the conversation across refreshes (the server's /tmp history is lost between serverless instances) ---------- */
+const CHAT_KEY = 'studydesk-chat';
+function loadTurns() { try { return JSON.parse(localStorage.getItem(CHAT_KEY)) || []; } catch { return []; } }
+function saveTurn(user, assistant) {
+  try { localStorage.setItem(CHAT_KEY, JSON.stringify([...loadTurns(), { user, assistant }].slice(-30))); } catch {}
+}
+
 /* ---------- boot ---------- */
 (async () => {
   showEmpty(); resetSources();
   try {
-    const hist = await api('/api/history');
+    let hist = [];
+    try { hist = await api('/api/history'); } catch {}
+    if (!hist.length) hist = loadTurns();
     if (hist.length) { $('.empty', thread)?.remove(); hist.forEach(t => { addMsg('user', t.user); addMsg('bot', t.assistant); }); }
     await refresh();
   } catch (e) { toast('Could not reach the server: ' + e.message); }
+  const t0 = location.hash.slice(1) || location.pathname.replace(/\//g, ''); if (['chat', 'quiz', 'notes'].includes(t0)) setTab(t0);
 })();
 </script>
 </body>

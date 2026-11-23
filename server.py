@@ -120,9 +120,26 @@ def _state() -> dict:
     }
 
 
+NO_CACHE = {"Cache-Control": "no-cache, must-revalidate"}  # always fetch the latest page on refresh
+
+
 @app.get("/")
 def index():
-    return FileResponse(STATIC / "index.html")
+    return FileResponse(STATIC / "index.html", headers=NO_CACHE)
+
+
+@app.delete("/api/notes/{index}")
+def delete_note(index: int):
+    """Remove one saved note; `index` is its position in the list shown by /api/state."""
+    if not NOTES_FILE.exists():
+        raise HTTPException(404, "No saved notes")
+    lines = NOTES_FILE.read_text(encoding="utf-8").splitlines()
+    valid = [i for i, line in enumerate(lines) if re.match(r"\[(.*?)\]\s*(.*)", line)]
+    if not 0 <= index < len(valid):
+        raise HTTPException(404, "That note no longer exists")
+    del lines[valid[index]]
+    NOTES_FILE.write_text("".join(line + "\n" for line in lines), encoding="utf-8")
+    return {"notes": _notes()}
 
 
 @app.get("/api/state")
@@ -303,6 +320,14 @@ def export():
         "notes": _notes(),
         "quiz": _state()["quiz"],
     }
+
+
+@app.get("/{path:path}", include_in_schema=False)
+def spa_fallback(path: str):
+    """Refreshing a deep link (e.g. /chat or /notes) should reopen the app, not a 404. API paths still 404."""
+    if path.startswith("api/"):
+        raise HTTPException(404, "Not found")
+    return FileResponse(STATIC / "index.html", headers=NO_CACHE)
 
 
 if __name__ == "__main__":
