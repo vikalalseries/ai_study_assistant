@@ -89,8 +89,8 @@
   .empty { text-align: center; margin: 6vh auto 0; max-width: 480px; color: var(--muted); }
   .empty .logo { margin: 0 auto; width: 48px; height: 48px; border-radius: 14px; }
   .empty h2 { font: 700 26px var(--serif); color: var(--ink); margin: 14px 0 6px; }
-  .starters { display: grid; gap: 8px; margin-top: 22px; }
-  .starters button { text-align: left; min-height: 44px; padding: 10px 16px; border-radius: 12px; border: 1px solid var(--line2); background: var(--panel); }
+  .starters { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 18px; }
+  .starters button { width: fit-content; max-width: 100%; text-align: center; min-height: 0; padding: 3px 12px; font-size: 13px; line-height: 1.4; border-radius: 8px; border: 1px solid var(--line2); background: var(--panel); }
   .starters button:hover { border-color: var(--accent); background: var(--accent-soft); }
 
   .composer { flex: none; padding: 8px 32px 24px; }
