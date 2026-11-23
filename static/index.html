@@ -116,9 +116,9 @@
   .mic { width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: none; color: var(--muted); display: grid; place-items: center; }
   .mic[hidden] { display: none; }
   .mic:hover { background: var(--seg); color: var(--accent); }
-  .mic.on { background: var(--bad); color: #fff; animation: pulse 1.2s infinite; }
+  .mic.rec { background: var(--bad); color: #fff; animation: pulse 1.2s infinite; }
   @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(180,35,24,.45); } 50% { box-shadow: 0 0 0 8px rgba(180,35,24,0); } }
-  @media (prefers-reduced-motion: reduce) { .mic.on { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .mic.rec { animation: none; } }
   .attach:hover { background: var(--seg); color: var(--accent); }
   .pending { display: flex; gap: 8px; flex-wrap: wrap; }
   .pending:empty { display: none; }
@@ -296,9 +296,14 @@
     .btn.small { min-height: 44px; }
     .pending .pf button { width: 32px; height: 32px; }
   }
+
+  /* ---------- live dot texture (drawn by the script at the end of the page) ---------- */
+  #bg { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+  .shell { position: relative; z-index: 1; }
 </style>
 </head>
 <body>
+<canvas id="bg" aria-hidden="true"></canvas>
 <div class="shell">
 
   <header class="top">
@@ -338,7 +343,7 @@
               <button class="attach" id="attach" type="button" aria-label="Attach notes (.txt, .md, .pdf)" title="Attach notes (.txt, .md, .pdf)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5l-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"></path></svg></button>
               <input id="chatFile" type="file" accept=".txt,.md,.pdf,application/pdf" multiple hidden>
               <textarea id="input" rows="1" placeholder="Ask anything about your notes"></textarea>
-              <button class="mic" id="mic" type="button" aria-label="Speak your question" aria-pressed="false" title="Speak your question" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
+              <button class="mic" id="mic" type="button" aria-label="Speak instead of typing" aria-pressed="false" title="Speak instead of typing" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
               <button class="send" id="send" type="submit" aria-label="Send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></button>
             </form>
           </div>
@@ -415,6 +420,7 @@
 <dialog id="viewer"><header><span id="viewerName"></span><button class="btn small" id="viewerClose">Close</button></header><pre id="viewerText"></pre></dialog>
 <div id="toast" role="status"></div>
 
+<script src="/static/deepgram_mic.js"></script>
 <script>
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -575,6 +581,7 @@ async function sendFiles(files) {
 
 async function send(text) {
   text = text.trim(); if ((!text && !pendingFiles.length) || busy) return;
+  stopDictation();
   input.blur();  // closes the on-screen keyboard on phones; tapping the box opens it again
   setTab('chat');
   busy = true; sendBtn.disabled = true;
@@ -749,27 +756,11 @@ $('#theme').onclick = () => {
 };
 try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
 
-/* ---------- voice to text (Web Speech API; hidden where unsupported) ---------- */
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+/* ---------- live voice typing (Deepgram via /api/listen; see static/deepgram_mic.js) ---------- */
 const micBtn = $('#mic');
-if (SR) {
-  micBtn.hidden = false;
-  let rec = null, base = '';
-  const stopMic = () => { try { rec && rec.stop(); } catch {} };
-  const setMic = on => { micBtn.classList.toggle('on', on); micBtn.setAttribute('aria-pressed', String(on)); micBtn.setAttribute('aria-label', on ? 'Stop listening' : 'Speak your question'); };
-  micBtn.onclick = () => {
-    if (rec) return stopMic();
-    rec = new SR(); rec.lang = navigator.language || 'en-US'; rec.interimResults = true; rec.continuous = false;
-    base = input.value ? input.value.replace(/\s*$/, ' ') : '';
-    rec.onstart = () => setMic(true);
-    rec.onresult = e => { let t = ''; for (const r of e.results) t += r[0].transcript; input.value = base + t; autosize(); };
-    rec.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('Microphone permission is blocked'); else if (e.error === 'no-speech') toast("Didn't hear anything, try again"); else if (e.error !== 'aborted') toast('Voice input error: ' + e.error); };
-    rec.onend = () => { rec = null; setMic(false); if (!isTouch) input.focus(); };
-    try { rec.start(); } catch { rec = null; }
-  };
-  $('#form').addEventListener('submit', stopMic);
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') stopMic(); });
-}
+micBtn.hidden = false;                       // createMic hides it again if the browser cannot record
+const mic = createMic({ input, button: micBtn, onError: toast, onChange: autosize });
+const stopDictation = () => { if (mic.active()) mic.cancel(); };   // sending: drop the recording, keep the typed text for send()
 
 /* ---------- keep the conversation across refreshes (the server's /tmp history is lost between serverless instances) ---------- */
 const CHAT_KEY = 'studydesk-chat';
@@ -789,6 +780,64 @@ function saveTurn(user, assistant) {
     await refresh();
   } catch (e) { toast('Could not reach the server: ' + e.message); }
   const t0 = location.hash.slice(1) || location.pathname.replace(/\//g, ''); if (['chat', 'quiz', 'notes'].includes(t0)) setTab(t0);
+})();
+</script>
+<script>
+/* Interactive dotted background (ported from aas0nic/RAMS-Frontend DottedBackground.jsx).
+   A grid of small dots; dots near the pointer are pushed away with spring physics, grow a little,
+   and bounce back when it leaves. Colours come from the theme variables (--ink for the grid, --accent for active dots). */
+(() => {
+  const cv = document.getElementById('bg'), ctx = cv.getContext('2d');
+  const SPACING = 32, RADIUS = 110, SIZE = 1.5;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let dots = [], w = 0, h = 0, raf = 0, ink = '#000', accent = '#1F6F5C';
+  const mouse = { x: null, y: null };
+
+  function colors() {
+    const cs = getComputedStyle(document.documentElement);
+    ink = cs.getPropertyValue('--ink').trim() || '#000';
+    accent = cs.getPropertyValue('--accent').trim() || '#1F6F5C';
+  }
+  function init() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    w = innerWidth; h = innerHeight;
+    cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    dots = [];
+    for (let x = SPACING / 2; x < w; x += SPACING)
+      for (let y = SPACING / 2; y < h; y += SPACING) dots.push({ bx: x, by: y, x, y, vx: 0, vy: 0 });
+  }
+  function frame() {
+    ctx.clearRect(0, 0, w, h);
+    for (const d of dots) {
+      let near = 0;
+      if (mouse.x !== null && !reduce) {
+        const dx = mouse.x - d.x, dy = mouse.y - d.y, dist = Math.hypot(dx, dy);
+        if (dist < RADIUS) {
+          near = 1 - dist / RADIUS;
+          const ang = Math.atan2(dy, dx);
+          d.vx -= Math.cos(ang) * near * 8;          // push away from the pointer
+          d.vy -= Math.sin(ang) * near * 8;
+        }
+      }
+      d.vx += (d.bx - d.x) * 0.06; d.vy += (d.by - d.y) * 0.06;   // spring back to the grid
+      d.vx *= 0.82; d.vy *= 0.82;                                  // friction
+      d.x += d.vx; d.y += d.vy;
+      ctx.beginPath(); ctx.arc(d.x, d.y, SIZE + near * 1.8, 0, 6.2832);
+      ctx.fillStyle = near ? accent : ink; ctx.globalAlpha = near ? 0.55 : 0.1; ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    if (!reduce) raf = requestAnimationFrame(frame);
+  }
+  function start() { cancelAnimationFrame(raf); frame(); }
+
+  addEventListener('pointermove', e => { mouse.x = e.clientX; mouse.y = e.clientY; }, { passive: true });
+  addEventListener('pointerup', e => { if (e.pointerType === 'touch') mouse.x = mouse.y = null; });
+  document.addEventListener('mouseleave', () => { mouse.x = mouse.y = null; });
+  addEventListener('resize', () => { init(); if (reduce) frame(); });
+  document.addEventListener('visibilitychange', () => document.hidden ? cancelAnimationFrame(raf) : start());
+  new MutationObserver(() => { colors(); if (reduce) frame(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { colors(); if (reduce) frame(); });
+  colors(); init(); start();
 })();
 </script>
 </body>
