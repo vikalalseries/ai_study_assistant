@@ -98,19 +98,35 @@
   .composer.started .chips-row { display: none; }
   .chip { min-height: 44px; padding: 0 18px; border: 1px solid var(--line2); border-radius: 22px; background: var(--panel); font-weight: 500; font-size: 13px; }
   .chip:hover { border-color: var(--accent); }
-  .input-row { display: flex; align-items: flex-end; gap: 12px; background: var(--panel); border: 1px solid var(--line2); border-radius: 16px; padding: 8px 8px 8px 20px; }
+  /* one line: [attach] text [mic] [send] on the same row; once the text wraps: text on top, buttons underneath */
+  .input-row { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: 4px; background: var(--panel); border: 1px solid var(--line2); border-radius: 28px; padding: 6px 6px 6px 8px; }
+  .input-row textarea { grid-column: 2; grid-row: 1; width: 100%; min-width: 0; padding-left: 6px; }
+  .input-row .attach { grid-column: 1; grid-row: 1; }
+  .input-row .mic { grid-column: 3; grid-row: 1; }
+  .input-row .send { grid-column: 4; grid-row: 1; }
+  .input-row.multi { border-radius: 24px; padding: 10px 10px 8px 18px; }
+  .input-row.multi textarea { grid-column: 1 / -1; grid-row: 1; padding: 2px 0; margin-bottom: 4px; min-height: 26px; }
+  .input-row.multi .attach { grid-row: 2; margin-left: -8px; }
+  .input-row.multi .mic, .input-row.multi .send { grid-row: 2; }
   .input-row:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .input-row textarea:focus, .input-row textarea:focus-visible { outline: none; box-shadow: none; }
-  textarea { flex: 1; min-height: 44px; max-height: 160px; resize: none; border: 0; outline: 0; padding: 11px 0; font: 15px/1.4 var(--sans); color: var(--ink); background: transparent; }
-  .attach { width: 48px; height: 48px; flex: none; border: 0; border-radius: 12px; background: none; color: var(--muted); display: grid; place-items: center; margin-left: -12px; }
+  textarea::-webkit-scrollbar { display: none; }
+  textarea { flex: 1; min-height: 40px; max-height: 200px; resize: none; border: 0; outline: 0; padding: 9px 0; font: 14px/22px var(--sans); overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; color: var(--ink); background: transparent; }
+  .attach { width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: none; color: var(--muted); display: grid; place-items: center; }
+  .mic { width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: none; color: var(--muted); display: grid; place-items: center; }
+  .mic[hidden] { display: none; }
+  .mic:hover { background: var(--seg); color: var(--accent); }
+  .mic.on { background: var(--bad); color: #fff; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(180,35,24,.45); } 50% { box-shadow: 0 0 0 8px rgba(180,35,24,0); } }
+  @media (prefers-reduced-motion: reduce) { .mic.on { animation: none; } }
   .attach:hover { background: var(--seg); color: var(--accent); }
   .pending { display: flex; gap: 8px; flex-wrap: wrap; }
   .pending:empty { display: none; }
   .pending .pf { display: inline-flex; align-items: center; gap: 6px; padding: 4px 4px 4px 12px; border: 1px solid var(--line2); border-radius: 18px; background: var(--panel); font-size: 13px; }
   .pending .pf button { background: none; border: 0; color: var(--muted); width: 24px; height: 24px; border-radius: 12px; }
   .pending .pf button:hover { background: var(--seg); color: var(--bad); }
-  .send { width: 48px; height: 48px; flex: none; border: 0; border-radius: 12px; background: var(--accent); display: grid; place-items: center; }
-  .send:disabled { opacity: .5; cursor: default; }
+  .send { width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: var(--accent); display: grid; place-items: center; }
+  .send:disabled { opacity: .35; cursor: default; }
 
   /* sources panel */
   .sources { width: 372px; flex: none; border-left: 1px solid var(--line); background: var(--side); padding: 28px 24px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
@@ -224,7 +240,9 @@
     .msg, .msg.user { max-width: 100%; }
     .msg.bot .bubble { padding: 12px 14px; }
     .composer { padding: 6px 12px 10px; }
-    .input-row { padding: 6px 6px 6px 16px; gap: 4px; }
+    .input-row { padding: 4px 4px 4px 6px; }
+    .input-row.multi { padding: 8px 8px 6px 14px; }
+    .input-row textarea { max-height: 140px; }
     #input::placeholder { font-size: 12px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
     #input { text-overflow: ellipsis; }
     .empty { margin-top: 3vh; }
@@ -320,6 +338,7 @@
               <button class="attach" id="attach" type="button" aria-label="Attach notes (.txt, .md, .pdf)" title="Attach notes (.txt, .md, .pdf)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5l-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"></path></svg></button>
               <input id="chatFile" type="file" accept=".txt,.md,.pdf,application/pdf" multiple hidden>
               <textarea id="input" rows="1" placeholder="Ask anything about your notes"></textarea>
+              <button class="mic" id="mic" type="button" aria-label="Speak your question" aria-pressed="false" title="Speak your question" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
               <button class="send" id="send" type="submit" aria-label="Send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></button>
             </form>
           </div>
@@ -523,6 +542,7 @@ function resetSources() {
 /* ---------- attach notes from the chat box ---------- */
 let pendingFiles = [];
 function renderPending() {
+  setTimeout(updateSend);
   $('#pending').innerHTML = pendingFiles.map((f, i) =>
     `<span class="pf">📄 ${esc(f.name)}<button type="button" data-unattach="${i}" aria-label="Remove ${esc(f.name)}">✕</button></span>`).join('');
 }
@@ -562,7 +582,7 @@ async function send(text) {
     const files = pendingFiles; pendingFiles = []; renderPending();
     const ok = await sendFiles(files);
     if (!ok) { pendingFiles = files; renderPending(); }  // keep them so the user can retry
-    if (!ok || !text) { busy = false; sendBtn.disabled = false; refocus(); return; }
+    if (!ok || !text) { busy = false; updateSend(); refocus(); return; }
   }
   addMsg('user', text); input.value = ''; autosize();
   const t = typing();
@@ -570,7 +590,7 @@ async function send(text) {
     const r = await api('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text }) });
     t.remove(); addMsg('bot', r.answer, r.tools); renderSources(r.tools); renderState(r.state); saveTurn(text, r.answer);
   } catch (e) { t.remove(); addMsg('error', 'Something went wrong: ' + e.message); }
-  busy = false; sendBtn.disabled = false; refocus();
+  busy = false; updateSend(); refocus();
 }
 
 /* ---------- state (score, files, notes, memory) ---------- */
@@ -602,8 +622,16 @@ async function refresh() { renderState(await api('/api/state')); }
 
 /* ---------- events ---------- */
 $('#form').addEventListener('submit', e => { e.preventDefault(); send(input.value); });
-input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input.value); } });
-function autosize() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 160) + 'px'; }
+input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !isTouch && !e.isComposing) { e.preventDefault(); send(input.value); } });
+function updateSend() { sendBtn.disabled = busy || (!input.value.trim() && !pendingFiles.length); }
+function autosize() {
+  const form = $('#form'), max = parseFloat(getComputedStyle(input).maxHeight) || 200;
+  form.classList.remove('multi');                     // measure as a single row first
+  input.style.height = 'auto';
+  if (input.scrollHeight > 42) { form.classList.add('multi'); input.style.height = 'auto'; }   // wrapped: text on top, buttons below
+  input.style.height = Math.min(input.scrollHeight, max) + 'px';
+  updateSend();
+}
 input.addEventListener('input', autosize);
 
 document.addEventListener('click', async e => {
@@ -721,6 +749,28 @@ $('#theme').onclick = () => {
 };
 try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
 
+/* ---------- voice to text (Web Speech API; hidden where unsupported) ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const micBtn = $('#mic');
+if (SR) {
+  micBtn.hidden = false;
+  let rec = null, base = '';
+  const stopMic = () => { try { rec && rec.stop(); } catch {} };
+  const setMic = on => { micBtn.classList.toggle('on', on); micBtn.setAttribute('aria-pressed', String(on)); micBtn.setAttribute('aria-label', on ? 'Stop listening' : 'Speak your question'); };
+  micBtn.onclick = () => {
+    if (rec) return stopMic();
+    rec = new SR(); rec.lang = navigator.language || 'en-US'; rec.interimResults = true; rec.continuous = false;
+    base = input.value ? input.value.replace(/\s*$/, ' ') : '';
+    rec.onstart = () => setMic(true);
+    rec.onresult = e => { let t = ''; for (const r of e.results) t += r[0].transcript; input.value = base + t; autosize(); };
+    rec.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('Microphone permission is blocked'); else if (e.error === 'no-speech') toast("Didn't hear anything, try again"); else if (e.error !== 'aborted') toast('Voice input error: ' + e.error); };
+    rec.onend = () => { rec = null; setMic(false); if (!isTouch) input.focus(); };
+    try { rec.start(); } catch { rec = null; }
+  };
+  $('#form').addEventListener('submit', stopMic);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') stopMic(); });
+}
+
 /* ---------- keep the conversation across refreshes (the server's /tmp history is lost between serverless instances) ---------- */
 const CHAT_KEY = 'studydesk-chat';
 function loadTurns() { try { return JSON.parse(localStorage.getItem(CHAT_KEY)) || []; } catch { return []; } }
@@ -730,7 +780,7 @@ function saveTurn(user, assistant) {
 
 /* ---------- boot ---------- */
 (async () => {
-  showEmpty(); resetSources();
+  autosize(); showEmpty(); resetSources();
   try {
     let hist = [];
     try { hist = await api('/api/history'); } catch {}
