@@ -8,12 +8,15 @@ import ast
 import asyncio
 import io
 import json
+import os
 import re
 from pathlib import Path
 
+import httpx
 import uvicorn
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pypdf import PdfReader
 
@@ -320,6 +323,59 @@ def export():
         "notes": _notes(),
         "quiz": _state()["quiz"],
     }
+
+
+def _deepgram_key() -> str:
+    key = os.getenv("DEEPGRAM_API_KEY") or os.getenv("text_to_speech")
+    if not key:
+        raise HTTPException(503, "Voice typing is not set up: DEEPGRAM_API_KEY is missing")
+    return key
+
+
+@app.post("/api/transcribe")
+async def transcribe(request: Request):
+    """Speech to text for one short recording (about 4 seconds), sent as the raw request body.
+
+    Plain HTTP, so it works on Vercel. The page uses it when it cannot stream live (see /api/voice-token).
+    """
+    audio = await request.body()
+    if len(audio) < 1000:  # almost nothing recorded: treat as silence
+        return {"text": ""}
+    if len(audio) > 3_000_000:
+        raise HTTPException(413, "That recording is too long")
+    headers = {"Authorization": f"Token {_deepgram_key()}", "Content-Type": request.headers.get("content-type", "audio/webm")}
+    params = {"model": "nova-3", "language": "multi", "smart_format": "true", "punctuate": "true"}
+    try:
+        async with httpx.AsyncClient(timeout=25) as client:
+            r = await client.post("https://api.deepgram.com/v1/listen", params=params, headers=headers, content=audio)
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, "Could not reach the speech service") from exc
+    if r.status_code != 200:
+        raise HTTPException(502, f"The speech service refused the request ({r.status_code})")
+    alts = r.json().get("results", {}).get("channels", [{}])[0].get("alternatives", [{}])
+    return {"text": (alts[0].get("transcript") or "").strip()}
+
+
+@app.post("/api/voice-token")
+async def voice_token():
+    """Live voice typing without a WebSocket on the server (Vercel cannot hold one).
+
+    The browser asks for a short-lived Deepgram token here, then streams the microphone straight to Deepgram.
+    The real API key never leaves the server; the token expires after a minute.
+    """
+    key = _deepgram_key()
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post("https://api.deepgram.com/v1/auth/grant",
+                                  headers={"Authorization": f"Token {key}"}, json={"ttl_seconds": 60})
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, "Could not reach the speech service") from exc
+    if r.status_code != 200:
+        raise HTTPException(502, f"The speech service refused the request ({r.status_code})")
+    return {"token": r.json()["access_token"]}
+
+
+app.mount("/static", StaticFiles(directory=STATIC), name="static")  # deepgram_mic.js; must come before the catch-all
 
 
 @app.get("/{path:path}", include_in_schema=False)
